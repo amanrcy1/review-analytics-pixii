@@ -53,23 +53,50 @@ export async function analyzeAmazonCategory(
     }
 
     const maxToAnalyze = userAsin ? config.maxCompetitors + 1 : config.maxCompetitors
+    const productsToAnalyze = products.slice(0, maxToAnalyze)
+    const warnings: string[] = []
 
-    const competitorResults = await Promise.allSettled(
-      products.slice(0, maxToAnalyze).map(async product => {
+    // Step 2a: Fetch all reviews in parallel (RapidAPI has no per-minute issue)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Step 2a: Fetching reviews in parallel...')
+    }
+
+    const reviewResults = await Promise.allSettled(
+      productsToAnalyze.map(product => getProductReviews(product.asin, config.reviewPages))
+    )
+
+    const productReviews = reviewResults.map(r =>
+      r.status === 'fulfilled' ? r.value : ([] as ReviewData[])
+    )
+
+    // Step 2b: AI analysis — sequential to respect rate limits
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Step 2b: Running AI analysis...')
+    }
+
+    const competitors: CompetitorAnalysis[] = []
+    let totalReviews = 0
+
+    for (let i = 0; i < productsToAnalyze.length; i++) {
+      const product = productsToAnalyze[i]!
+      const reviews = productReviews[i] ?? []
+      try {
         if (process.env.NODE_ENV === 'development') {
           console.warn(`Analyzing product: ${product.title.substring(0, 50)}...`)
         }
 
-        // Get reviews
-        const reviews = await getProductReviews(product.asin, config.reviewPages)
+        totalReviews += reviews.length
 
         // AI analysis of reviews
         const aiAnalysis = await analyzeReviewsWithAI(reviews, product.title)
+        if (aiAnalysis.isSampleAnalysis) {
+          warnings.push(`AI analysis used sample data for "${product.title.substring(0, 40)}..." — AI API quota may be exhausted`)
+        }
 
-        // Revenue estimation
+        // Revenue estimation (instant, local math)
         const revenueEstimate = estimateRevenue(product)
 
-        const competitor: CompetitorAnalysis = {
+        competitors.push({
           product,
           reviews,
           purchaseCriteria: aiAnalysis.purchaseCriteria,
@@ -78,21 +105,15 @@ export async function analyzeAmazonCategory(
           weaknesses: aiAnalysis.weaknesses,
           opportunities: aiAnalysis.opportunities,
           isUserListing: userAsin ? product.asin.toUpperCase() === userAsin : false,
+        })
+
+        // Delay only when Gemini is the only AI provider (15 RPM limit)
+        const usingGeminiOnly = !process.env.GROQ_API_KEY && process.env.GEMINI_API_KEY
+        if (usingGeminiOnly && i < productsToAnalyze.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500))
         }
-
-        return { competitor, reviewCount: reviews.length }
-      })
-    )
-
-    const competitors: CompetitorAnalysis[] = []
-    let totalReviews = 0
-
-    for (const result of competitorResults) {
-      if (result.status === 'fulfilled') {
-        competitors.push(result.value.competitor)
-        totalReviews += result.value.reviewCount
-      } else {
-        console.error('Error analyzing product:', result.reason)
+      } catch (error) {
+        console.error(`Error analyzing product ${product.asin}:`, error)
       }
     }
 
@@ -115,6 +136,8 @@ export async function analyzeAmazonCategory(
       marketInsights,
       generatedAt: new Date().toISOString(),
       ...(userAsin ? { userAsin } : {}),
+      dataSource: products.some(p => p.imageUrl.includes('amazon.com')) ? 'live' : 'sample',
+      warnings: warnings.length > 0 ? warnings : undefined,
     }
 
     if (process.env.NODE_ENV === 'development') {
@@ -301,7 +324,7 @@ async function getProductReviews(asin: string, reviewPages: number): Promise<Rev
     asin.startsWith('B01')
   const reviews = isHealthProduct ? supplementReviews : genericReviews
 
-  await new Promise(resolve => setTimeout(resolve, 300))
+  await new Promise(resolve => setTimeout(resolve, 50))
   return reviews
 }
 

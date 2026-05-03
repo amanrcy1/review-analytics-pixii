@@ -242,8 +242,8 @@ function parseApiProduct(item: Record<string, unknown>): ProductData | null {
     imageUrl = String((item.images as string[])[0])
   }
 
-  // Parse URL — API returns productUrl
-  const url = String(item.productUrl || item.url || item.product_url || `https://www.amazon.com/dp/${asin}`)
+  // Parse URL — always use clean Amazon dp link (API returns long tracking URLs that expire)
+  const url = `https://www.amazon.com/dp/${asin}`
 
   return {
     asin,
@@ -803,7 +803,18 @@ export async function scrapeAmazonProducts(
 
         const myProduct = await getProductDetailsLive(inputAsin)
         if (!myProduct) {
-          console.warn('[Amazon] Could not fetch ASIN details, falling back to search')
+          console.warn('[Amazon] Could not fetch ASIN details, trying search by ASIN')
+          // Fallback: search for the ASIN as a keyword — Amazon often returns the product
+          const searchResults = await searchProductsLive(inputAsin)
+          if (searchResults.length > 0) {
+            // First result matching the ASIN is the user's product
+            const found = searchResults.find(p => p.asin === inputAsin)
+            if (found) {
+              return [found, ...searchResults.filter(p => p.asin !== inputAsin)].slice(0, max + 1)
+            }
+            return searchResults.slice(0, max)
+          }
+          console.warn('[Amazon] Search by ASIN also failed, falling back to sample data')
         } else {
           // Get comparable products (competitors)
           const competitors = await getComparableProductsLive(inputAsin)
@@ -846,19 +857,20 @@ export async function scrapeAmazonProducts(
   // Fallback to sample data
   await new Promise(resolve => setTimeout(resolve, 800))
 
-  // In ASIN mode, use supplement sample data and ensure we return
-  // the user's listing (first) + max competitors
+  // If ASIN mode with a live API key but no results found, the ASIN is likely invalid
+  if (inputAsin && process.env.RAPIDAPI_KEY) {
+    throw new Error(`Could not find Amazon product with ASIN "${inputAsin}". Please check the ASIN and try again.`)
+  }
+
+  // Keyword mode or no API key — use sample data
   const sampleProducts = generateSampleProducts(inputAsin ? 'supplement' : query)
 
   if (inputAsin && sampleProducts.length > 0) {
-    // Stamp the user's ASIN onto the first product so the analyzer tags it
-    // Keep the realistic product title from the sample data
     sampleProducts[0] = {
       ...sampleProducts[0]!,
       asin: inputAsin,
       url: `https://www.amazon.com/dp/${inputAsin}`,
     }
-    // Return user listing + max competitors
     return sampleProducts.slice(0, max + 1)
   }
 

@@ -1,129 +1,110 @@
-# Amazon Review Analytics
+# Review Analytics — Pixii.ai
 
-AI-powered competitive intelligence for Amazon sellers. Enter a product category or ASIN, get real competitor data, revenue estimates, and purchase criteria insights.
+AI-powered Amazon review analytics for competitive intelligence. Enter your Amazon listing ASIN and instantly get competitor analysis, revenue estimates, purchase criteria insights, and a downloadable PDF report.
 
-**Built for [Pixii.ai](https://pixii.ai)**
+**Live demo:** [review-analytics-pixii.vercel.app](https://review-analytics-pixii.vercel.app)
 
----
+## What it does
 
-## How It Works
+An Amazon seller pastes their product ASIN — the app finds 9 real competitors, scrapes their listings, runs AI analysis on customer reviews, and delivers:
 
-```
-User enters "magnesium supplements" or ASIN (B07K2GKQM1)
-  → RapidAPI fetches real Amazon products, reviews & images
-    → Google Gemini Flash analyzes reviews with AI
-      → BSR power-law model estimates competitor revenue
-        → Dashboard displays actionable insights
-```
+- **Your Listing vs. 9 Competitors** — your product highlighted against the competition
+- **Key Market Insight** — one actionable sentence cross-referencing what customers care about most vs. where competitors are weakest
+- **Purchase Criteria** — ranked by importance with sentiment analysis and review quotes
+- **Revenue Estimates** — BSR power-law model with confidence scoring, seasonality, and category calibration
+- **Market Opportunities** — data-driven gaps found from competitor weaknesses and neutral criteria
+- **PDF Report** — branded, shareable report with all insights
 
-## What You Get
+## APIs & Tools
 
-- **Competitor Analysis** — Real product data with pricing, ratings, BSR, and images
-- **Revenue Estimates** — Industry-standard BSR-to-sales model (12 category curves, seasonality, triangulation)
-- **Purchase Criteria** — AI extracts what customers care about, ranked by importance with review quotes
-- **Market Opportunities** — Strengths, weaknesses, and gaps across the competitive landscape
+| Tool | Purpose | Tier |
+|------|---------|------|
+| **RapidAPI Real-Time Amazon Data** | Live product scraping — prices, ratings, images, reviews, comparable products | Free (100 req/mo) |
+| **Groq (llama-3.3-70b)** | Primary AI for review analysis — fast, 30 RPM | Free |
+| **Google Gemini Flash** | Secondary AI fallback | Free |
+| **OpenAI GPT-4o-mini** | Tertiary AI fallback (paid) | Paid |
+| **jsPDF** | Client-side PDF report generation | Open source |
 
-## Input Modes
-
-| Input | Example | What Happens |
-|-------|---------|-------------|
-| Keyword | `magnesium supplements` | Searches Amazon, analyzes top results |
-| ASIN | `B07K2GKQM1` | Fetches your listing + 9 competitors |
-| Amazon URL | `amazon.com/dp/B07K2GKQM1` | Extracts ASIN, same as above |
-
-## APIs Used
-
-| API | Purpose | Cost |
-|-----|---------|------|
-| [RapidAPI Real-Time Amazon Data](https://rapidapi.com/bmayoub151/api/real-time-amazon-api-data) | Products, reviews, images | Free (100 req/mo) |
-| [Google Gemini Flash](https://aistudio.google.com/apikey) | AI review analysis | Free (1M tokens/day) |
-| OpenAI GPT-4o-mini *(optional fallback)* | AI review analysis | $5 min credit |
-
-All APIs are optional — the app runs with realistic sample data when no keys are configured.
-
-## Quick Start
-
-```bash
-git clone <repo-url>
-cd amazon-review-analytics
-npm install
-cp .env.example .env.local
-# Add your API keys to .env.local
-npm run dev
-```
-
-## Environment Variables
-
-```env
-# Required for real data (both free)
-GEMINI_API_KEY=        # https://aistudio.google.com/apikey
-RAPIDAPI_KEY=          # https://rapidapi.com — subscribe to Real-Time Amazon Data
-
-# Optional
-OPENAI_API_KEY=        # Paid fallback for AI analysis
-
-# Scaling (adjust based on API tier)
-MAX_COMPETITORS=8              # Products to analyze per query
-REVIEW_PAGES_PER_PRODUCT=1     # Pages of reviews per product
-```
-
-### Scaling Guide
-
-| Tier | Settings | Reviews/Query | Queries/Month |
-|------|----------|---------------|---------------|
-| Free (100 calls/mo) | 8 competitors, 1 page | ~80 | ~11 |
-| Basic ($10/mo, 1000 calls) | 10 competitors, 10 pages | ~1000 | ~9 |
+AI cascade: **Groq → Gemini → OpenAI → sample data**. The app never crashes — it always delivers results.
 
 ## Tech Stack
 
-Next.js 16 · TypeScript · Tailwind CSS · Recharts · Google Gemini · RapidAPI
+- **Next.js 16** with App Router and Turbopack
+- **TypeScript** with strict mode
+- **Tailwind CSS** for styling
+- **Recharts** for purchase criteria visualization
+- **jsPDF + jspdf-autotable** for PDF export
 
-## Deploy
+## Getting Started
 
 ```bash
-npm run build
-vercel deploy
+git clone https://github.com/amanrcy1/review-analytics-pixii.git
+cd review-analytics-pixii
+npm install
 ```
 
-Set `GEMINI_API_KEY` and `RAPIDAPI_KEY` in Vercel → Settings → Environment Variables.
+Create `.env.local` with your API keys:
+
+```env
+# Required for real Amazon data
+RAPIDAPI_KEY=your_key_here
+
+# AI providers (at least one recommended)
+GROQ_API_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
+
+# Optional
+OPENAI_API_KEY=your_key_here
+MAX_COMPETITORS=9
+REVIEW_PAGES_PER_PRODUCT=1
+```
+
+Get your free API keys:
+- **RapidAPI:** [rapidapi.com](https://rapidapi.com/letscrape-6bRBa3QguO5/api/real-time-amazon-data) — subscribe to free plan
+- **Groq:** [console.groq.com/keys](https://console.groq.com/keys)
+- **Gemini:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+
+```bash
+npm run dev
+```
+
+Open [localhost:3000](http://localhost:3000) and enter an ASIN like `B0CK9GL14F` or search `magnesium supplements`.
+
+## How It Works
+
+1. **Product Discovery** — RapidAPI fetches the user's listing + comparable products. Falls back to keyword search if comparable products are insufficient.
+
+2. **Review Collection** — Fetches customer reviews for each product. Sample reviews used when API quota is exhausted.
+
+3. **AI Analysis** — Each product's reviews are analyzed by Groq/Gemini/OpenAI to extract purchase criteria, strengths, weaknesses, and opportunities. Cascading fallback ensures results always arrive.
+
+4. **Revenue Estimation** — BSR power-law model calibrated per Amazon category with seasonality factors, review velocity cross-validation, and confidence bands.
+
+5. **Market Insights** — Aggregates all competitor data to surface the killer insight, data-driven opportunities, and strategic recommendations.
+
+## Key Design Decisions
+
+- **"Your Listing" framing** — ASIN input highlights the user's product distinctly, because sellers want to know "how do I stack up?" not just "show me data"
+- **Killer insight** — One sentence at the top cross-referencing the #1 purchase criterion with the biggest market gap. This is what makes a seller say "I need this tool."
+- **Graceful degradation** — Every API has a fallback. Every failure shows a clear message. The app works with zero API keys (demo mode) or all of them.
+- **PDF export** — Sellers share reports with partners and investors. A downloadable PDF shows you understand the user's workflow beyond the screen.
 
 ## Project Structure
 
 ```
-app/
-  (app)/page.tsx              — Landing page + results dashboard
-  api/analyze/route.ts        — Analysis API endpoint
-  api/placeholder/[...]/      — SVG placeholder image generator
-  globals.css                 — Design system
-  layout.tsx                  — Root layout
-  types.ts                    — Re-exports from single source of truth
-lib/
-  amazon-scraper.ts           — RapidAPI integration (search, ASIN, reviews)
-  ai-analyzer.ts              — Gemini → OpenAI → sample fallback
-  revenue-estimator.ts        — BSR power-law model (12 categories)
-  amazon-analyzer.ts          — Orchestrates the full pipeline
-src/features/analytics/
-  components/                 — ResultsDashboard, CompetitorCard, Charts, MarketInsights
-  types.ts                    — Single source of truth for all types
-  index.ts                    — Barrel exports
+app/                    # Next.js App Router
+  (app)/page.tsx        # Main page with search, history, settings
+  api/analyze/route.ts  # Analysis API endpoint
+lib/                    # Backend logic
+  ai-analyzer.ts        # Groq/Gemini/OpenAI cascade
+  amazon-analyzer.ts    # Orchestrator — scrape, analyze, estimate
+  amazon-scraper.ts     # RapidAPI product & review fetching
+  revenue-estimator.ts  # BSR power-law revenue model
+src/features/analytics/ # UI components
+  components/           # Dashboard, cards, charts, PDF generator
+  types.ts              # Shared TypeScript interfaces
 ```
 
-## Revenue Estimation Model
+## License
 
-Uses the industry-standard power-law relationship:
-
-```
-Monthly Units = coefficient × BSR^exponent × marketplace × seasonality
-```
-
-- 12 category-specific curves (Health, Electronics, Home, Beauty, etc.)
-- Triangulated with review velocity cross-validation (2% review rate)
-- Seasonality adjustment (Jan 0.85× → Dec 1.45×)
-- Confidence bands (±15% for top 500 BSR, ±70% for deep tail)
-- Category-specific return rate deductions (3% health → 15% clothing)
-
-Same methodology used by Jungle Scout, Helium 10, and SellerSprite.
-
----
-
-MIT License
+MIT

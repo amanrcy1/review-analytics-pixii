@@ -153,6 +153,24 @@ export function ResultsDashboard({ result }: ResultsDashboardProps) {
         </button>
       </div>
 
+      {/* Sample data notice */}
+      {result.dataSource === 'sample' && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-sm text-blue-800">
+            <span className="font-semibold">Demo mode:</span> Showing sample data. Connect API keys for real Amazon product data and AI-powered review analysis.
+          </p>
+        </div>
+      )}
+
+      {/* AI fallback warning */}
+      {result.dataSource === 'live' && result.warnings && result.warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Note:</span> Product data is live from Amazon. AI review analysis used sample insights for some products due to API rate limits — results may be less specific.
+          </p>
+        </div>
+      )}
+
       {/* ── Killer Insight Banner ── */}
       {result.marketInsights.killerInsight && (
         <div className="animate-fade-in-up rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-5">

@@ -6,6 +6,7 @@ interface AIAnalysisResult {
   strengths: string[]
   weaknesses: string[]
   opportunities: string[]
+  isSampleAnalysis?: boolean
 }
 
 // ─── Shared prompt builder ──────────────────────────────────────────────
@@ -83,7 +84,40 @@ async function analyzeWithGemini(
   return parseAIResponse(text)
 }
 
-// ─── Secondary: OpenAI GPT-4o-mini (paid) ───────────────────────────────
+// ─── Secondary: Groq (free, fast) ───────────────────────────────────────
+async function analyzeWithGroq(
+  reviews: ReviewData[],
+  productTitle: string
+): Promise<AIAnalysisResult> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) throw new Error('GROQ_API_KEY not set')
+
+  console.warn('[AI] Using Groq llama-3.3-70b (free)')
+
+  const Groq = (await import('groq-sdk')).default
+  const groq = new Groq({ apiKey })
+
+  const response = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are an expert at analyzing customer reviews. Always respond with valid JSON only.',
+      },
+      { role: 'user', content: buildPrompt(reviews, productTitle) },
+    ],
+    max_tokens: 2048,
+    temperature: 0.3,
+  })
+
+  const text = response.choices[0]?.message?.content
+  if (!text) throw new Error('Empty response from Groq')
+
+  return parseAIResponse(text)
+}
+
+// ─── Tertiary: OpenAI GPT-4o-mini (paid) ────────────────────────────────
 async function analyzeWithOpenAI(
   reviews: ReviewData[],
   productTitle: string
@@ -118,14 +152,23 @@ async function analyzeWithOpenAI(
 }
 
 // ─── Main Export: Cascading AI Analysis ─────────────────────────────────
-// Priority: Gemini (free) → OpenAI (paid) → Sample data (offline)
+// Priority: Groq (free, fast) → Gemini (free) → OpenAI (paid) → Sample data (offline)
 export async function analyzeReviewsWithAI(
   reviews: ReviewData[],
   productTitle: string
 ): Promise<AIAnalysisResult> {
   console.warn(`[AI] Analyzing ${reviews.length} reviews for: ${productTitle.substring(0, 50)}...`)
 
-  // 1. Try Gemini Flash (free)
+  // 1. Try Groq (free, fast, 30 RPM)
+  if (process.env.GROQ_API_KEY) {
+    try {
+      return await analyzeWithGroq(reviews, productTitle)
+    } catch (error) {
+      console.error('[AI] Groq failed:', error)
+    }
+  }
+
+  // 2. Try Gemini Flash (free, 15 RPM)
   if (process.env.GEMINI_API_KEY) {
     try {
       return await analyzeWithGemini(reviews, productTitle)
@@ -134,7 +177,7 @@ export async function analyzeReviewsWithAI(
     }
   }
 
-  // 2. Try OpenAI (paid)
+  // 3. Try OpenAI (paid)
   if (process.env.OPENAI_API_KEY) {
     try {
       return await analyzeWithOpenAI(reviews, productTitle)
@@ -145,7 +188,8 @@ export async function analyzeReviewsWithAI(
 
   // 3. Fallback to sample data
   console.warn('[AI] No API keys available or all providers failed — using sample analysis')
-  return generateSampleAnalysis(productTitle)
+  const sample = generateSampleAnalysis(productTitle)
+  return { ...sample, isSampleAnalysis: true }
 }
 
 function generateSampleAnalysis(productTitle: string): AIAnalysisResult {

@@ -66,4 +66,6 @@ export interface AnalysisResult {
   marketInsights: MarketInsight
   generatedAt: string
   userAsin?: string
+  dataSource?: 'live' | 'sample'
+  warnings?: string[]
 }
