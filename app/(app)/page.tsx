@@ -185,8 +185,8 @@ function SettingsPanel({
               className="form-input"
             >
               <option value={3}>3 competitors</option>
-              <option value={5}>5 competitors</option>
-              <option value={9}>9 competitors (default)</option>
+              <option value={5}>5 competitors (default)</option>
+              <option value={9}>9 competitors</option>
               <option value={12}>12 competitors</option>
             </select>
           </div>
@@ -292,7 +292,7 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
-  const [maxCompetitors, setMaxCompetitors] = useState(9)
+  const [maxCompetitors, setMaxCompetitors] = useState(5)
   const [reviewPages, setReviewPages] = useState(1)
 
   useEffect(() => {
