@@ -90,7 +90,7 @@ async function getComparableProductsLive(asin: string): Promise<ProductData[]> {
   if (!response.ok) return []
 
   const data = await response.json()
-  const items = data?.comparable_products || data?.products || data?.data || []
+  const items = data?.data?.relatedProducts || data?.comparable_products || data?.products || data?.data || []
   const products: ProductData[] = []
 
   for (const item of items.slice(0, 9)) {
@@ -181,7 +181,7 @@ function parseApiProduct(item: Record<string, unknown>): ProductData | null {
   const title = String(item.title || item.product_title || '')
   if (!asin || !title) return null
 
-  // Parse price — API returns { display: "$26.99", amount: 26.99, currency: "USD" }
+  // Parse price — handles { display: "$26.99", amount: 26.99 } and plain strings
   let price = '$0.00'
   if (item.price && typeof item.price === 'object') {
     const priceObj = item.price as Record<string, unknown>
@@ -193,16 +193,28 @@ function parseApiProduct(item: Record<string, unknown>): ProductData | null {
   }
   if (!price.startsWith('$')) price = `$${price}`
 
-  // Parse rating
-  const rating = Number(item.rating || item.product_star_rating || item.stars || 0)
-
-  // Parse review count — API returns ratingCount
-  let reviewCount = 0
-  const rc = item.ratingCount || item.reviews_count || item.product_num_ratings || item.num_ratings || item.totalReviews || 0
-  if (typeof rc === 'string') {
-    reviewCount = parseInt(rc.replace(/[^0-9]/g, ''), 10) || 0
+  // Parse rating — handles nested { value: 4.6 } and flat rating field
+  let rating = 0
+  if (item.ratings && typeof item.ratings === 'object') {
+    const ratingsObj = item.ratings as Record<string, unknown>
+    rating = Number(ratingsObj.value || ratingsObj.rating || 0)
   } else {
-    reviewCount = Number(rc) || 0
+    rating = Number(item.rating || item.product_star_rating || item.stars || 0)
+  }
+
+  // Parse review count — handles nested ratings.reviewCount and flat ratingCount
+  let reviewCount = 0
+  if (item.ratings && typeof item.ratings === 'object') {
+    const ratingsObj = item.ratings as Record<string, unknown>
+    reviewCount = Number(ratingsObj.reviewCount || ratingsObj.count || 0)
+  }
+  if (reviewCount === 0) {
+    const rc = item.ratingCount || item.reviews_count || item.product_num_ratings || item.num_ratings || item.totalReviews || 0
+    if (typeof rc === 'string') {
+      reviewCount = parseInt(rc.replace(/[^0-9]/g, ''), 10) || 0
+    } else {
+      reviewCount = Number(rc) || 0
+    }
   }
 
   // Parse BSR — may be nested
@@ -220,9 +232,11 @@ function parseApiProduct(item: Record<string, unknown>): ProductData | null {
   // Parse category
   const category = String(item.category || item.product_category || item.department || 'General')
 
-  // Parse image
+  // Parse image — handles image, image_url, product_photo, thumbnail
   let imageUrl = '/api/placeholder/200/200'
-  if (item.image || item.product_photo || item.thumbnail || item.main_image) {
+  if (item.image_url) {
+    imageUrl = String(item.image_url)
+  } else if (item.image || item.product_photo || item.thumbnail || item.main_image) {
     imageUrl = String(item.image || item.product_photo || item.thumbnail || item.main_image)
   } else if (item.images && Array.isArray(item.images) && (item.images as string[]).length > 0) {
     imageUrl = String((item.images as string[])[0])
