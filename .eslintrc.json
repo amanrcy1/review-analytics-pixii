@@ -1,0 +1,49 @@
+{
+  "extends": [
+    "eslint:recommended"
+  ],
+  "plugins": [
+    "@typescript-eslint",
+    "react",
+    "react-hooks"
+  ],
+  "rules": {
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "no-undef": "off"
+  },
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true,
+    "jest": true
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "overrides": [
+    {
+      "files": ["*.config.js", "jest.setup.js"],
+      "env": {
+        "node": true,
+        "jest": true
+      }
+    }
+  ]
+}
