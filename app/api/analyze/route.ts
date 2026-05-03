@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     // Server-side clamping to prevent API quota abuse
     const config = {
       maxCompetitors: Math.min(
-        Math.max(1, Number(maxCompetitors) || Number(process.env.MAX_COMPETITORS) || 9),
+        Math.max(1, Number(maxCompetitors) || Number(process.env.MAX_COMPETITORS) || 5),
         15
       ),
       reviewPages: Math.min(
